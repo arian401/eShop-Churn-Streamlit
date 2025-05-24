@@ -2,7 +2,7 @@ name: Weekly batch churn scoring
 
 on:
   schedule:          # every Friday at 03:00 UTC
-    - cron: '*/5 * * * *'
+    - cron: '*/30 * * * *'
   workflow_dispatch: # manual “Run workflow” button
 
 # give the built-in GITHUB_TOKEN write permission
