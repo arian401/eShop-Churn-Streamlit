@@ -1,12 +1,11 @@
 name: Weekly batch churn scoring
 
 on:
-  # run every Friday at 03:00 UTC and whenever you click “Run workflow”
-  schedule:
+  schedule:          # every Friday at 03:00 UTC
     - cron: "0 3 * * 5"
-  workflow_dispatch:
+  workflow_dispatch: # manual “Run workflow” button
 
-# grant the default GITHUB_TOKEN permission to write back to the repo
+# give the built-in GITHUB_TOKEN write permission
 permissions:
   contents: write
 
@@ -18,37 +17,40 @@ jobs:
       # ── 1.  Check out repo ─────────────────────────────────────
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0              # keep history so we can push
+          fetch-depth: 0            # keep history so we can push to main
 
-      # ── 2.  Set up Python + deps ───────────────────────────────
+      # ── 2.  Set up Python ──────────────────────────────────────
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
       - run: pip install -r requirements.txt
 
-      # ── 3.  Run prediction script ──────────────────────────────
+      # ── 3.  Run the predictor ──────────────────────────────────
       - name: Run batch_predict.py
         run: python batch_predict.py
 
-      # ── 4.  Debug-print and commit results ─────────────────────
-      - name: List reports/
-        run: ls -l reports
+      # ── 4.  Show whatever is in reports/ (debug) ───────────────
+      - name: List reports directory
+        run: |
+          echo '🔍  reports/ content after script runs:'
+          ls -l reports || true
 
-      - name: Commit & push new CSV
+      # ── 5.  Commit the new CSV (if any) ────────────────────────
+      - name: Commit & push new report
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -e
           git config --global user.name  "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # stage ANY csv created today
-          git add -f reports/*.csv
+          # -f overrides .gitignore in case reports/ or *.csv is ignored
+          git add -f reports/*.csv || echo "Nothing to add yet …"
 
-          # commit only when there is something new
           if ! git diff --cached --quiet; then
-            git commit -m "Auto: add weekly churn report $(date -I)"
+            git commit -m "Auto: weekly churn report $(date -I)"
             git push origin HEAD:${{ github.event.repository.default_branch }}
           else
-            echo "Nothing new to commit."
+            echo "ℹ️  No new or changed CSV to commit."
           fi
