@@ -1,27 +1,39 @@
 """
-Fetch customer data, call the Hugging-Face API, save a CSV of high-risk customers.
-Run locally or via GitHub Actions.
+Fetch customer data, call the HF API, save a dated CSV with high-risk customers.
+Meant to run locally *or* inside GitHub Actions.
 """
-import pandas as pd, requests, pathlib, datetime as dt
+import datetime as dt
+from pathlib import Path
+import pandas as pd
+import requests
 
-API_URL = "https://arian401-eshop-churnpredictor.hf.space/predict/"
+# ── CONSTANTS ───────────────────────────────────────────────────
+BASE_DIR   = Path(__file__).resolve().parent
+DATA_FILE  = BASE_DIR / "data" / "customers_latest.csv"
+REPORT_DIR = BASE_DIR / "reports"
+API_URL    = "https://arian401-eshop-churnpredictor.hf.space/predict/"
 
-# 1. ── FETCH DATA ───────────────────────────────────────────────
-# Practise with a dummy CSV until you get a real DB.
-df = pd.read_csv("data/customers_latest.csv")        # 11 feature columns
+# ── 1.  Load the latest customer snapshot ───────────────────────
+df = pd.read_csv(DATA_FILE)
 
-# 2. ── CALL API FOR EACH CUSTOMER ───────────────────────────────
-preds = []
-for _, row in df.iterrows():
-    r = requests.post(API_URL, json=row.to_dict(), timeout=20)
-    preds.append(r.json().get("churn_prediction", None))
+# ── 2.  Score customers via the model API ───────────────────────
+def predict(row):
+    try:
+        r = requests.post(API_URL, json=row.to_dict(), timeout=20)
+        r.raise_for_status()
+        return r.json().get("churn_prediction")
+    except Exception as e:
+        print(f"⚠️  API error for id={row.get('customer_id', 'NA')}: {e}")
+        return None
 
-df["churn_prediction"] = preds
+df["churn_prediction"] = df.apply(predict, axis=1)
 
-# 3. ── FILTER HIGH-RISK & SAVE RESULTS ──────────────────────────
+# ── 3.  Filter & save high-risk customers ───────────────────────
 high_risk = df[df["churn_prediction"] == 1]
-today = dt.date.today().isoformat()
-pathlib.Path("reports").mkdir(exist_ok=True)
-outfile = f"reports/high_risk_customers_{today}.csv"
+
+REPORT_DIR.mkdir(exist_ok=True)
+today     = dt.date.today().isoformat()
+outfile   = REPORT_DIR / f"high_risk_customers_{today}.csv"
 high_risk.to_csv(outfile, index=False)
-print(f"✅  Saved {len(high_risk)} high-risk rows to {outfile}")
+
+print(f"✅  Wrote {len(high_risk)} high-risk rows to {outfile.relative_to(BASE_DIR)}")
