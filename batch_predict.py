@@ -39,8 +39,9 @@ df["churn_prediction"] = df.apply(score, axis=1)
 high_risk = df[df["churn_prediction"] == 1]
 REPORT_DIR.mkdir(exist_ok=True)
 
-today     = dt.date.today().isoformat()
-outfile   = REPORT_DIR / f"high_risk_customers_{today}.csv"
+now = dt.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+outfile = REPORT_DIR / f"high_risk_customers_{now}.csv"
+
 high_risk.to_csv(outfile, index=False)
 
 print(f"✅  Saved {len(high_risk)} high-risk rows to {outfile.relative_to(BASE_DIR)}")
