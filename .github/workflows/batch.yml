@@ -1,56 +1,69 @@
 name: Weekly batch churn scoring
 
 on:
-  schedule:          # every Friday at 03:00 UTC
-    - cron: '*/30 * * * *'
-  workflow_dispatch: # manual “Run workflow” button
+  schedule:
+    - cron: "0 3 * * 5"         # every Friday 03:00 UTC
+  workflow_dispatch:
 
-# give the built-in GITHUB_TOKEN write permission
 permissions:
-  contents: write
+  contents: write               # allow pushes with GITHUB_TOKEN
 
 jobs:
   batch:
     runs-on: ubuntu-latest
 
     steps:
-      # ── 1.  Check out repo ─────────────────────────────────────
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0            # keep history so we can push to main
+    # ── 1.  Check out repo ───────────────────────────────────────
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
-      # ── 2.  Set up Python ──────────────────────────────────────
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
-      - run: pip install -r requirements.txt
+    # ── 2.  Set up Python & deps ─────────────────────────────────
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: "pip"
+    - run: pip install -r requirements.txt
 
-      # ── 3.  Run the predictor ──────────────────────────────────
-      - name: Run batch_predict.py
-        run: python batch_predict.py
+    # ── 3.  Run predictor ────────────────────────────────────────
+    - name: Run batch_predict.py
+      run: python batch_predict.py
 
-      # ── 4.  Show whatever is in reports/ (debug) ───────────────
-      - name: List reports directory
-        run: |
-          echo '🔍  reports/ content after script runs:'
-          ls -l reports || true
+    # ── 4.  Capture the newest CSV path as an output ─────────────
+    - id: latestcsv
+      run: |
+        latest=$(ls -1t reports/high_risk_customers_*.csv | head -1)
+        echo "csv=$latest" >> "$GITHUB_OUTPUT"
+        echo "Found latest CSV: $latest"
 
-      # ── 5.  Commit the new CSV (if any) ────────────────────────
-      - name: Commit & push new report
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          git config --global user.name  "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+    # ── 5.  Commit & push CSV (force-add in case *.csv is ignored)
+    - name: Commit report
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        git config --global user.name  "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add -f ${{ steps.latestcsv.outputs.csv }} || true
+        if ! git diff --cached --quiet; then
+          git commit -m "Auto: churn report $(date -Iseconds)"
+          git push origin HEAD:${{ github.event.repository.default_branch }}
+        else
+          echo "Nothing new to commit."
+        fi
 
-          # -f overrides .gitignore in case reports/ or *.csv is ignored
-          git add -f reports/*.csv || echo "Nothing to add yet …"
-
-          if ! git diff --cached --quiet; then
-            git commit -m "Auto: weekly churn report $(date -I)"
-            git push origin HEAD:${{ github.event.repository.default_branch }}
-          else
-            echo "ℹ️  No new or changed CSV to commit."
-          fi
+    # ── 6.  E-mail the CSV as an attachment ──────────────────────
+    - name: Send report via e-mail
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{ secrets.SMTP_USERNAME }}
+        password: ${{ secrets.SMTP_PASSWORD }}
+        subject: "Churn report ${{ github.run_id }} ($(date -u +'%Y-%m-%d %H:%M UTC'))"
+        to: am.s401@yahoo.com
+        from: "Churn Bot <${{ secrets.SMTP_USERNAME }}>"
+        html_body: |
+          <p>Hello Amin,</p>
+          <p>The latest high-risk customer report is attached.</p>
+          <p>Run ID: <code>${{ github.run_id }}</code></p>
+        attachments: ${{ steps.latestcsv.outputs.csv }}
