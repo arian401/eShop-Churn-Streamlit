@@ -1,12 +1,15 @@
-name: Weekly batch churn scoring
+name: Daily batch churn scoring
 
 on:
   schedule:
-    - cron: "0 3 * * *"      # every day at 03:00 UTC
-  workflow_dispatch:
+    # ── 03:00 Eastern Time daily  ─────────────
+    # GitHub cron syntax is always interpreted in UTC,
+    # so 03:00 ET  =  07:00 UTC  (winter) / 08:00 UTC (summer).
+    - cron: "0 7 * * *"
+  workflow_dispatch:     # manual “Run workflow” button
 
 permissions:
-  contents: write               # allow pushes with GITHUB_TOKEN
+  contents: write        # let GITHUB_TOKEN push commits
 
 jobs:
   batch:
@@ -18,31 +21,40 @@ jobs:
       with:
         fetch-depth: 0
 
-    # ── 2.  Set up Python & deps ─────────────────────────────────
+    # ── 2.  Set up Python ────────────────────────────────────────
     - uses: actions/setup-python@v5
       with:
         python-version: "3.11"
         cache: "pip"
     - run: pip install -r requirements.txt
 
-    # ── 3.  Run predictor ────────────────────────────────────────
+    # ── 3.  Run the predictor ────────────────────────────────────
     - name: Run batch_predict.py
       run: python batch_predict.py
 
-    # ── 4.  Capture the newest CSV path as an output ─────────────
+    # ── 4.  Locate the newest CSV ────────────────────────────────
     - id: latestcsv
       run: |
         latest=$(ls -1t reports/high_risk_customers_*.csv | head -1)
-        echo "csv=$latest" >> "$GITHUB_OUTPUT"
-        echo "Found latest CSV: $latest"
+        echo "csv=$latest" >>"$GITHUB_OUTPUT"
 
-    # ── 5.  Commit & push CSV (force-add in case *.csv is ignored)
+    # ── 5.  Extract stats & Eastern-time stamp for e-mail ────────
+    - id: meta
+      run: |
+        CSV="${{ steps.latestcsv.outputs.csv }}"
+        COUNT=$(awk 'NR>1' "$CSV" | wc -l)        # rows minus header
+        DATE=$(TZ=America/Toronto date +'%Y-%m-%d %H:%M %Z')
+        echo "count=$COUNT" >>"$GITHUB_OUTPUT"
+        echo "date=$DATE"  >>"$GITHUB_OUTPUT"
+
+    # ── 6.  Commit the report if it’s new/changed ────────────────
     - name: Commit report
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         git config --global user.name  "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
         git add -f ${{ steps.latestcsv.outputs.csv }} || true
         if ! git diff --cached --quiet; then
           git commit -m "Auto: churn report $(date -Iseconds)"
@@ -51,7 +63,7 @@ jobs:
           echo "Nothing new to commit."
         fi
 
-    # ── 6.  E-mail the CSV as an attachment ──────────────────────
+    # ── 7.  E-mail the CSV to you ────────────────────────────────
     - name: Send report via e-mail
       uses: dawidd6/action-send-mail@v3
       with:
@@ -59,11 +71,19 @@ jobs:
         server_port: 465
         username: ${{ secrets.SMTP_USERNAME }}
         password: ${{ secrets.SMTP_PASSWORD }}
-        subject: "Churn report ${{ github.run_id }} ($(date -u +'%Y-%m-%d %H:%M UTC'))"
+
+        subject: "Churn prediction report"
+
         to: am.s401@yahoo.com
         from: "Churn Bot <${{ secrets.SMTP_USERNAME }}>"
-        html_body: |
-          <p>Hello Amin,</p>
-          <p>The latest high-risk customer report is attached.</p>
-          <p>Run ID: <code>${{ github.run_id }}</code></p>
+
+        body: |
+          Hello Amin,
+
+          The latest high-risk customer report is attached.
+          ${{ steps.meta.outputs.count }} high-risk customers.
+          Date: ${{ steps.meta.outputs.date }}
+
+          Run ID: ${{ github.run_id }}
+
         attachments: ${{ steps.latestcsv.outputs.csv }}
