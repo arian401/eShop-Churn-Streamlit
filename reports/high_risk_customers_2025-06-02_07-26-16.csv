@@ -1,0 +1,4 @@
+customer_id,tenure_months,total_spent,avg_purchase_frequency,avg_order_value,days_since_last_purchase,percentage_returns,complaint_count,loyalty_program_member,page_views_last_30d,cart_abandon_rate,discount_used_last_6m,churn_prediction
+100013,36,450.94,4.29,41.87,137,0.072,0,1,17,0.34,0,1.0
+100015,37,586.95,1.58,79.36,55,0.0,0,1,19,0.41,0,1.0
+100018,40,225.02,2.94,47.94,81,0.0,0,0,21,0.35,5,1.0
