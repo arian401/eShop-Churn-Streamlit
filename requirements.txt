@@ -1,11 +1,13 @@
 streamlit>=1.30
 requests>=2.31
-pandas>=2.2
 
 setuptools>=65
 wheel
 
 fastapi==0.115.2
 uvicorn[standard]==0.34.2
+pandas==1.5.3        # only if you actually call pd inside the API
+numpy==1.21.6
 scikit-learn==1.1.3
 joblib==1.2.0
+
