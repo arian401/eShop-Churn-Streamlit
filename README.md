@@ -20,7 +20,7 @@ A full-stack machine learning project that predicts e-commerce customer churn, p
 
 ## 🌐 Live Demos
 
-- **API**: https://arian401-eshop-churnpredictor.hf.space/predict/
+- **API**: https://arian401-eshop-churnpredictor.hf.space/docs
 - **Streamlit UI**: https://eshop-churn.streamlit.app/
 - **GitHub Repo**: https://github.com/arian401/eShop-Churn-Streamlit
 
