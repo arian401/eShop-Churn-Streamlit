@@ -12,11 +12,11 @@ pinned: false
 
 A full-stack machine learning project that predicts e-commerce customer churn, powered by:
 
-- ✅ FastAPI + Hugging Face Spaces (for real-time scoring)
-- ✅ Streamlit (for interactive frontend)
-- ✅ GitHub Actions (for scheduled batch predictions)
-- ✅ Flask (for local backend simulation)
-- ✅ Email alerts (for retention campaigns)
+-  FastAPI + Hugging Face Spaces (for real-time scoring)
+-  Streamlit (for interactive frontend)
+-  GitHub Actions (for scheduled batch predictions)
+-  Flask (for local backend simulation)
+-  Email alerts (for retention campaigns)
 
 ## 🌐 Live Demos
 
@@ -26,7 +26,7 @@ A full-stack machine learning project that predicts e-commerce customer churn, p
 
 ---
 
-## 🔧 Project Structure
+## Project Structure
 
 ```
 eShop-Churn-Streamlit/
@@ -46,7 +46,7 @@ eShop-Churn-Streamlit/
 
 ---
 
-## 🧪 Local Testing (Flask Backend)
+## Local Testing (Flask Backend)
 
 You can simulate a customer login event and trigger a real API call + email:
 
@@ -67,7 +67,7 @@ Emails are sent to the address configured in `.env`.
 
 ---
 
-## 🖥️ Streamlit Frontend
+##  Streamlit Frontend
 
 Supports:
 
@@ -95,7 +95,7 @@ SMTP_PASSWORD=your_app_password
 
 ---
 
-## 🧠 Model Details
+##  Model Details
 
 - **Features used (11)**: tenure, spend, frequency, recency, return rate, complaints, loyalty status, engagement, cart abandon rate, discount usage.
 - **Model**: RandomForestClassifier
@@ -105,28 +105,12 @@ SMTP_PASSWORD=your_app_password
 
 ---
 
-## 🔄 Weekly Retraining (optional)
+##  Weekly Retraining (optional)
 
 Automate model refresh via:
 
 - `train_and_export.py` script
 - Push updated `.pkl` files to HF repo or GitHub (Render will auto-deploy)
-
----
-
-## 📦 Installation
-
-```bash
-pip install -r requirements.txt
-streamlit run app.py
-```
-
-For the Flask backend:
-
-```bash
-pip install Flask python-dotenv requests
-flask run
-```
 
 ---
 
